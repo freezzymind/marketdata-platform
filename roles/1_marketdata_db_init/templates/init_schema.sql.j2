@@ -1,0 +1,139 @@
+\connect {{ postgres_db }}
+
+-- Create a schema to store data for a specific exchange
+CREATE SCHEMA IF NOT EXISTS {{ exchange }};
+
+-- Create an ENUM type for trade side (fixed set of values)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = '{{ exchange }}' AND t.typname = 'trade_side'
+  ) THEN
+    CREATE TYPE {{ exchange }}.trade_side AS ENUM ('buy','sell');
+  END IF;
+END $$;
+
+-- Create a sequence for trade_id (used when no external trade ID is provided)
+CREATE SEQUENCE IF NOT EXISTS {{ seq_name }};
+
+
+-- ====== Main tables (partitioned parent tables) ======
+
+-- Candles table — daily time-based partitioning, PK = timestamp
+CREATE TABLE IF NOT EXISTS {{ candles }} (
+    timestamp TIMESTAMP WITHOUT TIME ZONE PRIMARY KEY,
+    open DOUBLE PRECISION NOT NULL,
+    high DOUBLE PRECISION NOT NULL,
+    low DOUBLE PRECISION NOT NULL,
+    close DOUBLE PRECISION NOT NULL,
+    volume DOUBLE PRECISION NOT NULL
+) PARTITION BY RANGE (timestamp);
+
+-- Orderbooks table — daily time-based partitioning, PK = timestamp
+CREATE TABLE IF NOT EXISTS {{ orderbooks }} (
+    timestamp TIMESTAMP WITHOUT TIME ZONE PRIMARY KEY,
+    bids JSONB NOT NULL,
+    asks JSONB NOT NULL
+) PARTITION BY RANGE (timestamp);
+
+-- Trades table — daily time-based partitioning; PK = (timestamp, trade_id).
+-- trade_id is generated from a sequence when no external trade ID is provided.
+CREATE TABLE IF NOT EXISTS {{ trades }} (
+    trade_id BIGINT NOT NULL DEFAULT nextval('{{ seq_name }}'::regclass),
+    timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (timestamp, trade_id),
+    price DOUBLE PRECISION NOT NULL,
+    qty DOUBLE PRECISION NOT NULL,
+    side {{ exchange }}.trade_side NOT NULL
+) PARTITION BY RANGE (timestamp);
+
+
+-- ====== Indexes for trades ======
+-- For all new partitions, the index is created automatically if you create it on the parent table.
+CREATE INDEX IF NOT EXISTS {{ trades_index }} ON {{ trades }} (timestamp);
+
+-- ====== Create users ======
+DO $$
+BEGIN
+  -- collector
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'collector') THEN
+    CREATE ROLE collector LOGIN
+      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+      PASSWORD '{{ collector_password | replace("'", "''") }}';
+  ELSE
+    ALTER ROLE collector WITH PASSWORD '{{ collector_password | replace("'", "''") }}';
+  END IF;
+
+  -- analyst
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'analyst') THEN
+    CREATE ROLE analyst LOGIN
+      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+      PASSWORD '{{ analyst_password | replace("'", "''") }}';
+  ELSE
+    ALTER ROLE analyst WITH PASSWORD '{{ analyst_password | replace("'", "''") }}';
+  END IF;
+
+  -- partition_manager
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'partition_manager') THEN
+    CREATE ROLE partition_manager LOGIN
+      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+      PASSWORD '{{ partition_manager_password | replace("'", "''") }}';
+  ELSE
+    ALTER ROLE partition_manager WITH PASSWORD '{{ partition_manager_password | replace("'", "''") }}';
+  END IF;
+
+  -- reader
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'reader') THEN
+    CREATE ROLE reader LOGIN
+      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+      PASSWORD '{{ reader_password | replace("'", "''") }}';
+  ELSE
+    ALTER ROLE reader WITH PASSWORD '{{ reader_password | replace("'", "''") }}';
+  END IF;
+END
+$$;
+
+
+-- ====== Permissions ======
+
+-- Admin (postgres): full access
+GRANT ALL PRIVILEGES ON SCHEMA {{ exchange }} TO postgres;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA {{ exchange }} TO postgres;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA {{ exchange }} TO postgres;
+
+-- Collector: insert + read (used for deduplication)
+GRANT USAGE ON SCHEMA {{ exchange }} TO collector;
+GRANT INSERT, SELECT ON ALL TABLES IN SCHEMA {{ exchange }} TO collector;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {{ exchange }} TO collector;
+
+-- Analyst: read-only + ability to create TEMP tables
+GRANT USAGE ON SCHEMA {{ exchange }} TO analyst;
+GRANT SELECT ON ALL TABLES IN SCHEMA {{ exchange }} TO analyst;
+GRANT TEMP ON DATABASE {{ postgres_db }} TO analyst;
+
+-- Partition manager: delete/update (dedup/fixes) + create/drop tables (partitions)
+GRANT USAGE ON SCHEMA {{ exchange }} TO partition_manager;
+GRANT SELECT, DELETE, UPDATE ON ALL TABLES IN SCHEMA {{ exchange }} TO partition_manager;
+GRANT CREATE ON SCHEMA {{ exchange }} TO partition_manager;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {{ exchange }} TO partition_manager;
+
+-- Reader: read-only access
+GRANT USAGE ON SCHEMA {{ exchange }} TO reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA {{ exchange }} TO reader;
+
+
+-- ====== Default privileges for future objects ======
+ALTER DEFAULT PRIVILEGES IN SCHEMA {{ exchange }}
+GRANT INSERT, SELECT ON TABLES TO collector;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA {{ exchange }}
+GRANT USAGE, SELECT ON SEQUENCES TO collector, partition_manager;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA {{ exchange }}
+GRANT SELECT, DELETE, UPDATE ON TABLES TO partition_manager;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA {{ exchange }}
+GRANT SELECT ON TABLES TO reader, analyst;

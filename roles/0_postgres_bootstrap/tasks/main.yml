@@ -1,0 +1,36 @@
+---
+- name: Install PostgreSQL server/client
+  apt:
+    update_cache: true
+    name:
+      - "postgresql-{{ pg_version }}"
+      - "postgresql-client-{{ pg_version }}"
+      - "python3-psycopg2"
+    state: present
+
+- name: Render postgresql.conf
+  template:
+    src: postgresql.conf.j2
+    dest: "{{ pg_conf_file }}"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  register: pg_conf
+
+- name: Restart PostgreSQL if config changed
+  service:
+    name: postgresql
+    state: restarted
+  when: pg_conf.changed
+
+- name: Ensure PostgreSQL service started
+  service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Ensure database exists (empty)
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    state: present
+  become_user: postgres
