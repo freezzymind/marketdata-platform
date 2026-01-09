@@ -2,7 +2,7 @@
 - name: Deploy single-node Kubernetes cluster, common dependencies and network hardening
   hosts: master
   vars_files:
-    - ../vars/main.yml
+    - ./vars/main.yml
   roles:
     - role: 0_setup_internal_interface
     - role: 1_set_system_hostname
