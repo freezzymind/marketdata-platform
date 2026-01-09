@@ -1,0 +1,22 @@
+table inet firewall {
+  chain pre_filter {
+    type filter hook input priority -100;
+
+    # Loopback
+    iifname "lo" accept;
+
+    # Established connections
+    ct state established,related accept;
+
+    # Drop invalid packets
+    ct state invalid drop;
+
+    # ICMP minimal allow
+    ip protocol icmp icmp type {
+      echo-request,
+      destination-unreachable,
+      time-exceeded
+    } accept;
+  }
+}
+

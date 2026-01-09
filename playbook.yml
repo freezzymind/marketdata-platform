@@ -1,0 +1,18 @@
+---
+- name: Deploy single-node Kubernetes cluster, common dependencies and network hardening
+  hosts: master
+  vars_files:
+    - ../vars/main.yml
+  roles:
+    - role: 0_setup_internal_interface
+    - role: 1_set_system_hostname
+    - role: 2_python_setup
+    - role: 3_base_packages
+    - role: 4_prepare_host_for_k8s
+    - role: 5_containerd
+    - role: 6_kubernetes
+    - role: 7_init_cluster
+    - role: 8_cni_calico
+    - role: 9_nginx_setup
+      tags: [nginx]
+    - role: 10_network_hardening

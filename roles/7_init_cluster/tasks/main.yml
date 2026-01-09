@@ -1,0 +1,32 @@
+---
+- name: Initialize Kubernetes Control Plane
+  ansible.builtin.command: >
+    kubeadm init 
+    --apiserver-advertise-address={{ apiserver_advertise_address }}
+    --pod-network-cidr={{ pod_network_cidr }}
+    --service-cidr={{ service_cidr }}
+    --cri-socket unix:///run/containerd/containerd.sock
+    --apiserver-cert-extra-sans={{ apiserver_cert_extra_sans }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+
+- name: Ensure kube-apiserver bind-address is set
+  ansible.builtin.lineinfile:
+    path: /etc/kubernetes/manifests/kube-apiserver.yaml
+    insertafter: '^ *- --advertise-address='
+    line: "    - --bind-address={{ bind_address }}"
+
+- name: Create .kube directory for current user
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.kube"
+    state: directory
+    mode: '0755'
+
+- name: Copy admin kubeconfig to user's home
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ ansible_env.HOME }}/.kube/config"
+    remote_src: yes
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_id }}"
+    mode: '0600'

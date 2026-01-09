@@ -1,0 +1,36 @@
+---
+- name: Install base system packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - tar
+      - unzip
+      - zip
+      - bzip2
+      - gzip
+      - jq
+      - htop
+      - net-tools
+      - gnupg2
+      - ca-certificates
+      - lsb-release
+      - apt-transport-https
+      - software-properties-common
+      - traceroute
+      - mtr
+      - dnsutils
+      - iperf3
+      - tcpdump
+      - openssl
+      - conntrack
+      - socat
+      - ebtables
+      - iptables
+      - ethtool
+      - rsyslog
+      - git
+      - nano
+      - rsync
+    state: present
+    update_cache: yes

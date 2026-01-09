@@ -1,0 +1,16 @@
+---
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ hostname }}"
+
+- name: Replace /etc/hosts with clean minimal version (IPv4 only)
+  ansible.builtin.copy:
+    dest: /etc/hosts
+    content: |
+      {{ public_ip }} {{ hostname }}
+      {{ apiserver_advertise_address }} {{ hostname }}
+      127.0.0.1 {{ hostname }}
+      127.0.0.1 localhost
+    owner: root
+    group: root
+    mode: '0644'

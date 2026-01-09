@@ -1,0 +1,19 @@
+[DEFAULT]
+ignoreip = {{ ignoreip }}
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+maxretry = 1
+findtime = 60
+bantime = -1
+backend = systemd
+
+[sshd-ddos]
+enabled = true
+port = ssh
+filter = sshd-ddos
+maxretry = 1
+findtime = 60
+bantime = -1

@@ -1,0 +1,60 @@
+---
+- name: Enable and start systemd-networkd
+  ansible.builtin.systemd:
+    name: systemd-networkd
+    enabled: true
+    state: started
+
+- name: Deploy dummy interface definition (netdev)
+  ansible.builtin.template:
+    src: 10-kubeint0.netdev.j2
+    dest: /etc/systemd/network/10-kubeint0.netdev
+    mode: '0644'
+
+- name: Deploy network config for dummy interface
+  ansible.builtin.template:
+    src: 10-kubeint0.network.j2
+    dest: /etc/systemd/network/10-kubeint0.network
+    mode: '0644'
+
+- name: Restart systemd-networkd
+  ansible.builtin.systemd:
+    name: systemd-networkd
+    state: restarted
+    enabled: true
+
+- name: Wait for dummy interface kubeint0 to appear
+  ansible.builtin.wait_for:
+    path: /sys/class/net/kubeint0
+    timeout: 10
+
+- name: Add blackhole route to dummy subnet
+  ansible.builtin.shell: ip route add blackhole 10.200.0.0/24 || true
+  register: blackhole_result
+  changed_when: false
+
+- name: Debug blackhole route stdout
+  ansible.builtin.debug:
+    msg: "{{ blackhole_result.stdout }}"
+
+- name: Deploy route systemd unit to ensure 10.200.0.1 is always routed
+  ansible.builtin.copy:
+    src: route-kubeint0.service
+    dest: /etc/systemd/system/route-kubeint0.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd to pick up new unit
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable route-kubeint0 service to start at boot
+  ansible.builtin.systemd:
+    name: route-kubeint0
+    enabled: true
+
+- name: Start route-kubeint0 service
+  ansible.builtin.systemd:
+    name: route-kubeint0
+    state: started

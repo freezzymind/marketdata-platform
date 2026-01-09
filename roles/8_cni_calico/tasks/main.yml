@@ -1,0 +1,32 @@
+---
+- name: Deploy Calico CNI plugin
+  ansible.builtin.command: >
+    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.3/manifests/calico.yaml
+  register: calico_apply
+  retries: 10
+  delay: 10
+  until: calico_apply.rc == 0
+  changed_when: "'configured' not in calico_apply.stdout"
+
+- name: Wait until all system pods are Ready
+  ansible.builtin.command: >
+    kubectl wait --for=condition=Ready pods --all --all-namespaces --timeout=180s
+  register: calico_wait
+  failed_when: calico_wait.rc != 0
+  changed_when: false
+
+- name: Remove taint from control plane node
+  ansible.builtin.shell: |
+    kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+    kubectl taint nodes --all node-role.kubernetes.io/master- || true
+  changed_when: false
+
+- name: Verify all pods are running
+  ansible.builtin.command: kubectl get pods -A
+  register: pods_result
+  changed_when: false
+
+- name: Debug pod status
+  ansible.builtin.debug:
+    var: pods_result.stdout_lines
+
