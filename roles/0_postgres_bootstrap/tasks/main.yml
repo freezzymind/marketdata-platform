@@ -45,7 +45,7 @@
 
 - name: Ping PostgreSQL (readiness)
   community.postgresql.postgresql_ping:
-    db: "{{ postgres_db }}"
+    db: "postgres"
   become_user: "{{ postgres_user }}"
 
 - name: Ensure password_encryption = scram-sha-256 in tuning file
@@ -66,9 +66,23 @@
 - name: Set password for postgres DB role (does not affect peer)
   community.postgresql.postgresql_user:
     name: "postgres"
-    password: "{{ vault_postgres_password }}"
+    password: "{{ postgres_password }}"
   become_user: "{{ postgres_user }}"
   no_log: true
+
+- name: Allow TCP access from pods in pg_hba.conf (SCRAM)
+  ansible.builtin.blockinfile:
+    path: "{{ pg_conf_dir }}/pg_hba.conf"
+    marker: "# {mark} ANSIBLE MANAGED: marketdata"
+    block: |
+      host    {{ pg_hba_allow_db }}    {{ pg_hba_allow_user }}    {{ pg_hba_allow_cidr }}    scram-sha-256
+  register: pg_hba
+
+- name: Reload PostgreSQL if pg_hba changed
+  service:
+    name: postgresql
+    state: reloaded
+  when: pg_hba.changed
 
 - name: Ensure database exists (empty)
   community.postgresql.postgresql_db:

@@ -61,36 +61,36 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'collector') THEN
     CREATE ROLE collector LOGIN
       NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
-      PASSWORD '{{ vault_collector_password }}';
+      PASSWORD '{{ collector_password }}';
   ELSE
-    ALTER ROLE collector WITH PASSWORD '{{ vault_collector_password }}';
+    ALTER ROLE collector WITH PASSWORD '{{ collector_password }}';
   END IF;
 
   -- analyst
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'analyst') THEN
     CREATE ROLE analyst LOGIN
       NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
-      PASSWORD '{{ vault_analyst_password }}';
+      PASSWORD '{{ analyst_password }}';
   ELSE
-    ALTER ROLE analyst WITH PASSWORD '{{ vault_analyst_password }}';
+    ALTER ROLE analyst WITH PASSWORD '{{ analyst_password }}';
   END IF;
 
   -- partition_manager
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'partition_manager') THEN
     CREATE ROLE partition_manager LOGIN
       NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
-      PASSWORD '{{ vault_partition_manager_password }}';
+      PASSWORD '{{ partition_manager_password }}';
   ELSE
-    ALTER ROLE partition_manager WITH PASSWORD '{{ vault_partition_manager_password }}';
+    ALTER ROLE partition_manager WITH PASSWORD '{{ partition_manager_password }}';
   END IF;
 
   -- reader
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'reader') THEN
     CREATE ROLE reader LOGIN
       NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
-      PASSWORD '{{ vault_reader_password }}';
+      PASSWORD '{{ reader_password }}';
   ELSE
-    ALTER ROLE reader WITH PASSWORD '{{ vault_reader_password }}';
+    ALTER ROLE reader WITH PASSWORD '{{ reader_password }}';
   END IF;
 END
 $$;

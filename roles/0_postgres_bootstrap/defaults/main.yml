@@ -2,10 +2,15 @@ postgres_user: postgres
 postgres_db: marketdata
 pg_version: 15
 pg_cluster: main
+postgres_password: "{{ vault_postgres_password }}"
 
 pg_conf_dir: "/etc/postgresql/{{ pg_version }}/{{ pg_cluster }}"
 pg_conf_d_dir: "{{ pg_conf_dir }}/conf.d"
 pg_tuning_file: "{{ pg_conf_d_dir }}/marketdata.conf"
+
+pg_hba_allow_cidr: "{{ vault_pg_hba_allow_cidr }}"
+pg_hba_allow_user: "{{ vault_pg_hba_allow_user }}"
+pg_hba_allow_db: "{{ postgres_db }}"
 
 # Memory
 pg_shared_buffers: "1536MB"
@@ -17,7 +22,7 @@ pg_temp_buffers: "16MB"
 # Connections
 pg_max_connections: 60
 pg_port: 5432
-pg_listen_addresses: "localhost"
+pg_listen_addresses: "{{ vault_pg_listen_addresses }}"
 
 # WAL / Checkpoints
 pg_wal_level: "replica"

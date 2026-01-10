@@ -1,6 +1,11 @@
 postgres_user: postgres
 postgres_db: marketdata
 
+collector_password: "{{ vault_collector_password }}"
+analyst_password: "{{ vault_analyst_password }}"
+partition_manager_password: "{{ vault_partition_manager_password }}"
+reader_password: "{{ vault_reader_password }}"
+
 exchange: gate
 currency: eth
 

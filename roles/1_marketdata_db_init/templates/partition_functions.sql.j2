@@ -1,6 +1,6 @@
 -- Partition maintenance functions.
 -- Used by a microservice that connects as `partition_manager` and calls these functions.
--- Functions are SECURITY DEFINER and owned by the parent table owner (postgres).
+-- Functions are SECURITY DEFINER and owned by postgres (or whoever owns parent tables).
 
 -- Create a daily partition for a partitioned parent table
 CREATE OR REPLACE FUNCTION {{ exchange }}.create_daily_partition(p_parent regclass, p_day date)
@@ -9,6 +9,9 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = {{ exchange }}, pg_catalog
 AS $$
+DECLARE
+  v_schema text;
+  v_rel    text;
 BEGIN
   -- Allow-list only our parent tables
   IF p_parent NOT IN (
@@ -19,13 +22,25 @@ BEGIN
     RAISE EXCEPTION 'Partitioning is not allowed for %', p_parent;
   END IF;
 
-  -- Create partition name parent_YYYYMMDD (e.g., btc_trades_20260103)
+  -- Resolve schema/table name from regclass OID (robust)
+  SELECT n.nspname, c.relname
+    INTO v_schema, v_rel
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE c.oid = p_parent;
+
+  IF v_schema IS NULL OR v_rel IS NULL THEN
+    RAISE EXCEPTION 'Parent table not found for %', p_parent;
+  END IF;
+
+  -- Create partition: <schema>.<table>_YYYYMMDD
   EXECUTE format(
-    'CREATE TABLE IF NOT EXISTS %I.%I_%s PARTITION OF %s FOR VALUES FROM (%L) TO (%L)',
-    split_part(p_parent::text, '.', 1),
-    split_part(p_parent::text, '.', 2),
+    'CREATE TABLE IF NOT EXISTS %I.%I_%s PARTITION OF %I.%I FOR VALUES FROM (%L) TO (%L)',
+    v_schema,
+    v_rel,
     to_char(p_day, 'YYYYMMDD'),
-    p_parent,
+    v_schema,
+    v_rel,
     p_day::timestamp,
     (p_day + 1)::timestamp
   );
@@ -54,7 +69,6 @@ BEGIN
     RAISE EXCEPTION 'Dropping is not allowed for %', p_parent;
   END IF;
 
-  -- Find all partitions for the parent and drop by suffix date
   FOR r IN
     SELECT n.nspname, c.relname
     FROM pg_inherits i
