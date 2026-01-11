@@ -1,8 +1,0 @@
----
-- name: Provision PostgreSQL and initialize marketdata schema
-  hosts: db
-  become: true
-
-  roles:
-    - role: 0_postgres_bootstrap
-    - role: 1_marketdata_db_init
