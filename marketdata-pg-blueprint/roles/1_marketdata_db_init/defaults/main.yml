@@ -1,0 +1,16 @@
+postgres_user: postgres
+postgres_db: marketdata
+
+collector_password: "{{ vault_collector_password }}"
+analyst_password: "{{ vault_analyst_password }}"
+partition_manager_password: "{{ vault_partition_manager_password }}"
+reader_password: "{{ vault_reader_password }}"
+
+exchange: gate
+currency: eth
+
+seq_name: "{{ exchange }}.{{ currency }}_trades_seq"
+candles: "{{ exchange }}.{{ currency }}_candles"
+orderbooks: "{{ exchange }}.{{ currency }}_orderbooks"
+trades: "{{ exchange }}.{{ currency }}_trades"
+trades_index: "idx_{{ currency }}_trades_timestamp"

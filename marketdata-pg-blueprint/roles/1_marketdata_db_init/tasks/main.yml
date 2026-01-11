@@ -1,0 +1,38 @@
+---
+- name: Ensure target database exists
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    state: present
+  become_user: "{{ postgres_user }}"
+
+- name: Render init schema SQL
+  template:
+    src: init_schema.sql.j2
+    dest: "/tmp/init_schema.sql"
+    owner: "{{ postgres_user }}"
+    group: "{{ postgres_user }}"
+    mode: "0600"
+  no_log: true
+
+- name: Apply init schema SQL
+  community.postgresql.postgresql_script:
+    db: "{{ postgres_db }}"
+    path: "/tmp/init_schema.sql"
+  become_user: "{{ postgres_user }}"
+  no_log: true
+
+- name: Render partition functions SQL
+  template:
+    src: partition_functions.sql.j2
+    dest: "/tmp/partition_functions.sql"
+    owner: "{{ postgres_user }}"
+    group: "{{ postgres_user }}"
+    mode: "0600"
+  no_log: true
+
+- name: Apply partition functions SQL
+  community.postgresql.postgresql_script:
+    db: "{{ postgres_db }}"
+    path: "/tmp/partition_functions.sql"
+  become_user: "{{ postgres_user }}"
+  no_log: true

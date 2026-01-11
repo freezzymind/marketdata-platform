@@ -1,0 +1,91 @@
+---
+- name: Install PostgreSQL server/client
+  apt:
+    update_cache: true
+    name:
+      - "postgresql-{{ pg_version }}"
+      - "postgresql-client-{{ pg_version }}"
+      - "python3-psycopg2"
+    state: present
+
+- name: Ensure conf.d exists
+  file:
+    path: "{{ pg_conf_d_dir }}"
+    state: directory
+    owner: "{{ postgres_user }}"
+    group: "{{ postgres_user }}"
+    mode: "0755"
+
+- name: Render tuning file (conf.d/marketdata.conf)
+  template:
+    src: postgresql_tuning.conf.j2
+    dest: "{{ pg_tuning_file }}"
+    owner: "{{ postgres_user }}"
+    group: "{{ postgres_user }}"
+    mode: "0644"
+  register: pg_conf
+
+- name: Restart PostgreSQL if tuning changed
+  service:
+    name: postgresql
+    state: restarted
+  when: pg_conf.changed
+
+- name: Ensure PostgreSQL service started
+  service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Wait for PostgreSQL port
+  wait_for:
+    host: "127.0.0.1"
+    port: "{{ pg_port }}"
+    timeout: 30
+
+- name: Ping PostgreSQL (readiness)
+  community.postgresql.postgresql_ping:
+    db: "postgres"
+  become_user: "{{ postgres_user }}"
+
+- name: Ensure password_encryption = scram-sha-256 in tuning file
+  lineinfile:
+    path: "{{ pg_tuning_file }}"
+    regexp: '^password_encryption\s*='
+    line: "password_encryption = scram-sha-256"
+    insertafter: EOF
+    create: true
+  register: pg_pass_enc
+
+- name: Reload PostgreSQL if password_encryption changed
+  service:
+    name: postgresql
+    state: reloaded
+  when: pg_pass_enc.changed
+
+- name: Set password for postgres DB role (does not affect peer)
+  community.postgresql.postgresql_user:
+    name: "postgres"
+    password: "{{ postgres_password }}"
+  become_user: "{{ postgres_user }}"
+  no_log: true
+
+- name: Allow TCP access from pods in pg_hba.conf (SCRAM)
+  ansible.builtin.blockinfile:
+    path: "{{ pg_conf_dir }}/pg_hba.conf"
+    marker: "# {mark} ANSIBLE MANAGED: marketdata"
+    block: |
+      host    {{ pg_hba_allow_db }}    {{ pg_hba_allow_user }}    {{ pg_hba_allow_cidr }}    scram-sha-256
+  register: pg_hba
+
+- name: Reload PostgreSQL if pg_hba changed
+  service:
+    name: postgresql
+    state: reloaded
+  when: pg_hba.changed
+
+- name: Ensure database exists (empty)
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    state: present
+  become_user: "{{ postgres_user }}"
