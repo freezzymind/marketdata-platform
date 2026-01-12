@@ -1,0 +1,24 @@
+version = 2
+
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    sandbox_image = "{{ sandbox_image }}"
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/opt/cni/bin"
+      conf_dir = "/etc/cni/net.d"
+      max_conf_num = 1
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      snapshotter = "{{ snapshotter }}"
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+  [plugins."io.containerd.internal.v1.opt"]
+    path = "/var/lib/containerd/opt"
+  [plugins."io.containerd.internal.v1.restart"]
+    interval = "10s"
+[metrics]
+  address = "127.0.0.1:{{ containerd_metrics_port }}"
+[debug]
+  level = "info"

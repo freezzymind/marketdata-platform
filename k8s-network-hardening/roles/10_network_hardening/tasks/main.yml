@@ -1,0 +1,179 @@
+---
+- name: Install Fail2Ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+    update_cache: yes
+
+- name: Deploy jail.local from template
+  ansible.builtin.template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Restart Fail2Ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: restarted
+    enabled: true
+
+- name: Install OpenSSH server
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    update_cache: yes
+
+- name: Deploy hardened sshd_config
+  ansible.builtin.template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Create systemd override directory for sshd
+  ansible.builtin.file:
+    path: /etc/systemd/system/sshd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy sshd resource limits config
+  ansible.builtin.copy:
+    src: limits.conf
+    dest: /etc/systemd/system/sshd.service.d/limits.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload systemd daemon
+  ansible.builtin.command: systemctl daemon-reload
+  changed_when: false
+
+- name: Restart sshd
+  ansible.builtin.systemd:
+    name: sshd
+    state: restarted
+    enabled: true
+
+- name: Deploy Linux hardening sysctl config
+  ansible.builtin.template:
+    src: 100-hardening.conf.j2
+    dest: /etc/sysctl.d/100-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy conntrack sysctl tuning
+  ansible.builtin.copy:
+    src: 102-conntrack.conf
+    dest: /etc/sysctl.d/102-conntrack.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply sysctl settings
+  ansible.builtin.command: sysctl --system
+  register: sysctl_apply
+  changed_when: "'Reloading' in sysctl_apply.stdout"
+
+- name: Install nftables 
+  ansible.builtin.apt: 
+    name: nftables 
+    state: present 
+    update_cache: yes
+
+- name: Enable nftables backend (required for UFW on Debian 12)
+  ansible.builtin.systemd:
+    name: nftables
+    state: started
+    enabled: yes
+
+- name: Create nftables include directory
+  ansible.builtin.file:
+    path: /etc/nftables.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy nftables pre-filter hardening
+  ansible.builtin.template:
+    src: nftables.local.conf.j2
+    dest: /etc/nftables.d/00-pre-filter.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy main nftables.conf
+  ansible.builtin.copy:
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      #!/usr/sbin/nft -f
+      include "/etc/nftables.d/*.conf"
+
+- name: Reload nftables ruleset
+  ansible.builtin.command: nft -f /etc/nftables.conf
+  changed_when: true
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: yes 
+
+- name: Set default incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+    state: reloaded
+
+- name: Set default outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+    state: reloaded
+
+- name: Set default routed policy to allow
+  community.general.ufw:
+    direction: routed
+    policy: allow
+    state: reloaded
+
+- name: Allow SSH (TCP 22)
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    comment: "SSH"
+    state: reloaded
+
+- name: Rate-limit SSH
+  community.general.ufw:
+    rule: limit
+    port: "22"
+    proto: tcp
+    state: reloaded
+
+- name: Deny SSH UDP
+  community.general.ufw:
+    rule: deny
+    port: "22"
+    proto: udp
+    comment: "Deny SSH UDP"
+    state: reloaded
+
+- name: Enable firewall (force)
+  ansible.builtin.command: ufw --force enable
+
+- name: Start ufw.service explicitly (required on Debian 12)
+  ansible.builtin.systemd:
+    name: ufw
+    state: started
+    enabled: yes

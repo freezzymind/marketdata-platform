@@ -1,0 +1,11 @@
+[Unit]
+Description=Add route to kubeint0
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/ip route add 10.200.0.1 dev kubeint0
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
