@@ -23,17 +23,17 @@ ansible-playbook -i inventory/hosts.local.ini playbook.yml
 ## Execution Order (Playbook)
 playbook.yml runs on hosts: master in this order:
 
-0_setup_internal_interface
-1_set_system_hostname
-2_python_setup
-3_base_packages
-4_prepare_host_for_k8s
-5_containerd
-6_kubernetes
-7_init_cluster
-8_cni_calico
-9_nginx_setup
-10_network_hardening
+- 0_setup_internal_interface
+- 1_set_system_hostname
+- 2_python_setup
+- 3_base_packages
+- 4_prepare_host_for_k8s
+- 5_containerd
+- 6_kubernetes
+- 7_init_cluster
+- 8_cni_calico
+- 9_nginx_setup
+- 10_network_hardening
 
 
 
