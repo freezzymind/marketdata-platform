@@ -1,6 +1,5 @@
 /cluster_services
 /external_access
-/microservices
 
 # marketdata-pg-blueprint ignores
 /marketdata-pg-blueprint/inventory/group_vars/db/vault.yml
