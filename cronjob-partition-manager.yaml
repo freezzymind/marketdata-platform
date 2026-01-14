@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: partition-manager
+  namespace: marketdata
+spec:
+  timeZone: "UTC"
+  schedule: "15 0 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: partition-manager
+              image: your-registry/partition-manager:0.1.0
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - configMapRef:
+                    name: configmap-partition-manager
+                - secretRef:
+                    name: secret-marketdata-db
+              volumeMounts:
+                - name: pm-config
+                  mountPath: /app/config
+                  readOnly: true
+          volumes:
+            - name: pm-config
+              configMap:
+                name: configmap-partition-manager
+                items:
+                  - key: config.json
+                    path: config.json

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-partition-manager
+  namespace: marketdata
+data:
+  TZ: "UTC"
+  DRY_RUN: "false"
+  LOG_LEVEL: "INFO"
+  POSTGRES_DB: "marketdata"
+  DB_HOST: "postgres.marketdata.svc.cluster.local"
+  DB_PORT: "5432"
+  CONFIG_PATH: "/app/config/config.json"
+  config.json: |
+    {
+      "exchanges": {
+        "gate": {
+          "currencies": ["eth"],
+          "tables": ["candles", "orderbooks", "trades"]
+        }
+      },
+      "create_ahead_days": 1,
+      "retention_days": 180
+    }
