@@ -22,5 +22,8 @@
     update_cache: yes
 
 - name: Hold kubelet, kubeadm, kubectl versions
-  ansible.builtin.shell: apt-mark hold kubelet kubeadm kubectl
-  changed_when: false
+  ansible.builtin.command: apt-mark hold kubelet kubeadm kubectl
+  register: hold_out
+  retries: 30
+  delay: 10
+  until: hold_out.rc == 0
