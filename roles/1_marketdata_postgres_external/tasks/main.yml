@@ -1,0 +1,56 @@
+---
+- name: Deploy marketdata postgres Service manifest
+  ansible.builtin.copy:
+    src: service-postgres-external.yaml
+    dest: /tmp/marketdata-service-postgres-external.yaml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply marketdata postgres Service
+  ansible.builtin.command: kubectl apply -f /tmp/marketdata-service-postgres-external.yaml
+  register: svc_apply
+  changed_when: "'configured' in svc_apply.stdout or 'created' in svc_apply.stdout"
+  failed_when: svc_apply.rc != 0
+
+- name: Verify marketdata postgres Service exists
+  ansible.builtin.command: kubectl -n marketdata get service postgres -o name
+  register: svc_check
+  changed_when: false
+  retries: 10
+  delay: 2
+  until: svc_check.rc == 0
+
+- name: Deploy marketdata postgres Endpoints manifest
+  ansible.builtin.copy:
+    src: endpoints-postgres-external.yaml
+    dest: /tmp/marketdata-endpoints-postgres-external.yaml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply marketdata postgres Endpoints
+  ansible.builtin.command: kubectl apply -f /tmp/marketdata-endpoints-postgres-external.yaml
+  register: ep_apply
+  changed_when: "'configured' in ep_apply.stdout or 'created' in ep_apply.stdout"
+  failed_when: ep_apply.rc != 0
+
+- name: Verify marketdata postgres Endpoints exist
+  ansible.builtin.command: kubectl -n marketdata get endpoints postgres -o name
+  register: ep_check
+  changed_when: false
+  retries: 10
+  delay: 2
+  until: ep_check.rc == 0
+
+- name: Remove temporary postgres Service manifest
+  ansible.builtin.file:
+    path: /tmp/marketdata-service-postgres-external.yaml
+    state: absent
+  changed_when: false
+
+- name: Remove temporary postgres Endpoints manifest
+  ansible.builtin.file:
+    path: /tmp/marketdata-endpoints-postgres-external.yaml
+    state: absent
+  changed_when: false

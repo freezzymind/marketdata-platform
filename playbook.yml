@@ -1,0 +1,9 @@
+---
+- name: Deploy marketdata k8s prereqs
+  hosts: master
+  become: true
+
+  roles:
+    - role: 0_marketdata_namespace
+    - role: 1_marketdata_postgres_external
+    - role: 2_marketdata_secrets
