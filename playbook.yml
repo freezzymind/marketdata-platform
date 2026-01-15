@@ -1,0 +1,7 @@
+---
+- name: Install additional services
+  hosts: master
+  roles:
+    - 0_helm
+    - 1_metrics-server
+    - 2_ingress-nginx
