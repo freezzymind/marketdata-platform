@@ -1,0 +1,45 @@
+---
+- name: Ensure curl and tar are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - tar
+    state: present
+    update_cache: yes
+
+- name: Download Helm archive
+  ansible.builtin.get_url:
+    url: https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz
+    dest: /tmp/helm.tar.gz
+    mode: '0644'
+    checksum: "sha256:e813c6ea8a365d9d4e7efd4112d9fccc45c9fb86c8c2e87f2e49dda285e2b228"
+
+- name: Extract Helm binary
+  ansible.builtin.unarchive:
+    src: /tmp/helm.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+- name: Install Helm binary
+  ansible.builtin.copy:
+    src: /tmp/linux-amd64/helm
+    dest: /usr/local/bin/helm
+    mode: '0755'
+    remote_src: yes
+    force: no
+
+- name: Remove temporary files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/linux-amd64
+    - /tmp/helm.tar.gz
+
+- name: Verify Helm installation
+  ansible.builtin.command: helm version
+  register: helm_ver
+  changed_when: false
+
+- debug:
+    var: helm_ver.stdout
