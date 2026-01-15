@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: postgres
+  namespace: marketdata
+subsets:
+  - addresses:
+      - ip: 10.200.0.1
+    ports:
+      - name: pg
+        port: 5432

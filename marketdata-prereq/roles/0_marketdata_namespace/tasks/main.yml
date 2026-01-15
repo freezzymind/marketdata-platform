@@ -1,0 +1,28 @@
+---
+- name: Deploy marketdata namespace manifest
+  ansible.builtin.copy:
+    src: namespace-marketdata.yaml
+    dest: /tmp/namespace-marketdata.yaml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply marketdata namespace
+  ansible.builtin.command: kubectl apply -f /tmp/namespace-marketdata.yaml
+  register: ns_apply
+  changed_when: "'configured' in ns_apply.stdout or 'created' in ns_apply.stdout"
+  failed_when: ns_apply.rc != 0
+
+- name: Verify marketdata namespace exists
+  ansible.builtin.command: kubectl get namespace marketdata -o name
+  register: ns_check
+  changed_when: false
+  retries: 10
+  delay: 2
+  until: ns_check.rc == 0
+
+- name: Remove temporary namespace manifest
+  ansible.builtin.file:
+    path: /tmp/namespace-marketdata.yaml
+    state: absent
+  changed_when: false
